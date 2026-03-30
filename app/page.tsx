@@ -7,16 +7,23 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [contacts, setContacts] = useState<any[]>([])
 
-  // 입력값 상태
-  const [name, setName] = useState('')
+  // 입력 상태
+  const [gongjong, setGongjong] = useState('')
   const [company, setCompany] = useState('')
-  const [phone, setPhone] = useState('')
+  const [companyPhone, setCompanyPhone] = useState('')
+  const [managerName, setManagerName] = useState('')
+  const [managerPhone, setManagerPhone] = useState('')
+  const [gender, setGender] = useState('')
+  const [lastContact, setLastContact] = useState('')
+  const [memo, setMemo] = useState('')
+  const [priority, setPriority] = useState(1)
 
   // 데이터 불러오기
   const fetchData = async () => {
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
+      .order('created_at', { ascending: false })
 
     if (!error) setContacts(data || [])
   }
@@ -25,17 +32,23 @@ export default function Home() {
     fetchData()
   }, [])
 
-  // 추가 기능
+  // 추가
   const addContact = async () => {
-    if (!name) return alert('이름 입력해라')
+    if (!managerName) return alert('담당자 이름 입력')
 
     const { error } = await supabase
       .from('contacts')
       .insert([
         {
-          name: name,
-          company: company,
-          head_office_phone: phone,
+          gongjong,
+          company,
+          company_phone: companyPhone,
+          manager_name: managerName,
+          manager_phone: managerPhone,
+          gender,
+          last_contact: lastContact || null,
+          memo,
+          priority,
         },
       ])
 
@@ -45,19 +58,24 @@ export default function Home() {
     } else {
       alert('추가 완료')
 
-      // 입력값 초기화
-      setName('')
+      // 초기화
+      setGongjong('')
       setCompany('')
-      setPhone('')
+      setCompanyPhone('')
+      setManagerName('')
+      setManagerPhone('')
+      setGender('')
+      setLastContact('')
+      setMemo('')
+      setPriority(1)
 
-      // 다시 불러오기
       fetchData()
     }
   }
 
-  // 검색 필터
+  // 검색
   const filtered = contacts.filter((c) =>
-    (c.name || '').includes(search) ||
+    (c.manager_name || '').includes(search) ||
     (c.company || '').includes(search)
   )
 
@@ -66,30 +84,42 @@ export default function Home() {
 
       <h1 className="text-xl font-bold mb-4">현장 연락처</h1>
 
-      {/* 추가 입력 */}
+      {/* 입력 */}
       <div className="mb-4 border p-3 rounded">
-        <input
-          placeholder="이름"
-          className="w-full border p-2 mb-2"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          placeholder="업체"
-          className="w-full border p-2 mb-2"
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-        />
-        <input
-          placeholder="전화번호"
-          className="w-full border p-2 mb-2"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-        <button
-          onClick={addContact}
-          className="w-full bg-blue-500 text-white p-2 rounded"
-        >
+
+        <input placeholder="공종" className="w-full border p-2 mb-2"
+          value={gongjong} onChange={(e) => setGongjong(e.target.value)} />
+
+        <input placeholder="업체명" className="w-full border p-2 mb-2"
+          value={company} onChange={(e) => setCompany(e.target.value)} />
+
+        <input placeholder="본사번호" className="w-full border p-2 mb-2"
+          value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+
+        <input placeholder="담당자 이름" className="w-full border p-2 mb-2"
+          value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+
+        <input placeholder="담당자 전화번호" className="w-full border p-2 mb-2"
+          value={managerPhone} onChange={(e) => setManagerPhone(e.target.value)} />
+
+        <input placeholder="성별" className="w-full border p-2 mb-2"
+          value={gender} onChange={(e) => setGender(e.target.value)} />
+
+        <input type="date" className="w-full border p-2 mb-2"
+          value={lastContact} onChange={(e) => setLastContact(e.target.value)} />
+
+        <input placeholder="메모" className="w-full border p-2 mb-2"
+          value={memo} onChange={(e) => setMemo(e.target.value)} />
+
+        <select className="w-full border p-2 mb-2"
+          value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
+          <option value={1}>★</option>
+          <option value={2}>★★</option>
+          <option value={3}>★★★</option>
+        </select>
+
+        <button onClick={addContact}
+          className="w-full bg-blue-500 text-white p-2 rounded">
           추가
         </button>
       </div>
@@ -106,14 +136,23 @@ export default function Home() {
       {/* 목록 */}
       {filtered.map((c) => (
         <div key={c.id} className="border p-3 rounded mb-2">
-          <div className="font-semibold">{c.name}</div>
-          <div className="text-sm text-gray-500">{c.company}</div>
-          <a
-            href={`tel:${c.head_office_phone}`}
-            className="text-blue-500"
-          >
-            전화
-          </a>
+
+          <div className="font-semibold">
+            {c.manager_name} ({c.gongjong})
+          </div>
+
+          <div className="text-sm text-gray-500">
+            {c.company}
+          </div>
+
+          <div className="text-sm">
+            {c.manager_phone}
+          </div>
+
+          <div className="text-xs text-gray-400">
+            {c.memo}
+          </div>
+
         </div>
       ))}
 
