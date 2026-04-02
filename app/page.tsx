@@ -1,13 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+
+type Contact = {
+  id: string
+  gongjong: string | null
+  company: string | null
+  company_phone: string | null
+  manager_name: string | null
+  manager_phone: string | null
+  gender: string | null
+  last_contact: string | null
+  memo: string | null
+  priority: number | null
+}
 
 export default function Home() {
   const [search, setSearch] = useState('')
-  const [contacts, setContacts] = useState<any[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
 
-  // 입력값
+  const [selectedGongjong, setSelectedGongjong] = useState('')
+  const [selectedCompany, setSelectedCompany] = useState('')
+
   const [gongjong, setGongjong] = useState('')
   const [company, setCompany] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
@@ -17,32 +32,31 @@ export default function Home() {
   const [memo, setMemo] = useState('')
   const [priority, setPriority] = useState(1)
 
-  // 🔥 수정 상태
+  // 🔥 수정용 상태 추가
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  // 데이터 불러오기
   const fetchData = async () => {
-    const { data } = await supabase.from('contacts').select('*')
-    if (data) setContacts(data)
+    const { data } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('priority', { ascending: false })
+      .order('last_contact', { ascending: false })
+
+    setContacts((data as Contact[]) || [])
   }
 
   useEffect(() => {
     fetchData()
   }, [])
 
-  // 추가 / 수정
-  const handleSubmit = async () => {
-    if (!managerName || !managerPhone) {
-      alert('이름 / 전화번호 필수')
-      return
-    }
-
+  // 🔥 추가 + 수정 통합
+  const addContact = async () => {
     const payload = {
       gongjong,
       company,
-      companyPhone,
-      managerName,
-      managerPhone,
+      company_phone: companyPhone,
+      manager_name: managerName,
+      manager_phone: managerPhone,
       gender,
       memo,
       priority,
@@ -59,38 +73,43 @@ export default function Home() {
     fetchData()
   }
 
-  // 수정 버튼 클릭
-  const handleEdit = (c: any) => {
-    setGongjong(c.gongjong)
-    setCompany(c.company)
-    setCompanyPhone(c.companyPhone)
-    setManagerName(c.managerName)
-    setManagerPhone(c.managerPhone)
-    setGender(c.gender)
-    setMemo(c.memo)
-    setPriority(c.priority)
-    setEditingId(c.id)
-  }
-
-  // 삭제
-  const handleDelete = async (id: string) => {
+  const deleteContact = async (id: string) => {
     await supabase.from('contacts').delete().eq('id', id)
     fetchData()
   }
 
-  // 전화 → 최근연락 업데이트
-  const handleCall = async (c: any) => {
-    window.location.href = `tel:${c.managerPhone}`
-
+  const markLastContactNow = async (id: string) => {
     await supabase
       .from('contacts')
       .update({ last_contact: new Date().toISOString() })
-      .eq('id', c.id)
+      .eq('id', id)
 
     fetchData()
   }
 
-  // 폼 초기화
+  const updatePriority = async (id: string, next: number) => {
+    await supabase
+      .from('contacts')
+      .update({ priority: next })
+      .eq('id', id)
+
+    fetchData()
+  }
+
+  // 🔥 수정 버튼 클릭 시
+  const handleEdit = (c: Contact) => {
+    setGongjong(c.gongjong || '')
+    setCompany(c.company || '')
+    setCompanyPhone(c.company_phone || '')
+    setManagerName(c.manager_name || '')
+    setManagerPhone(c.manager_phone || '')
+    setGender(c.gender || '')
+    setMemo(c.memo || '')
+    setPriority(c.priority || 1)
+    setEditingId(c.id)
+  }
+
+  // 🔥 폼 초기화
   const resetForm = () => {
     setGongjong('')
     setCompany('')
@@ -103,63 +122,100 @@ export default function Home() {
     setEditingId(null)
   }
 
-  // 검색만 유지 (정렬 없음)
-  const filtered = contacts.filter(c =>
-    c.managerName.includes(search) ||
-    c.company.includes(search)
-  )
+  const filtered = contacts.filter((c) => {
+    const keyword = search.trim()
+
+    const matchSearch =
+      !keyword ||
+      (c.manager_name || '').includes(keyword) ||
+      (c.company || '').includes(keyword) ||
+      (c.gongjong || '').includes(keyword) ||
+      (c.manager_phone || '').includes(keyword)
+
+    const matchGongjong =
+      !selectedGongjong || c.gongjong === selectedGongjong
+
+    const matchCompany =
+      !selectedCompany || c.company === selectedCompany
+
+    return matchSearch && matchGongjong && matchCompany
+  })
+
+  const formatDate = (d: string | null) => {
+    if (!d) return '-'
+    return new Date(d).toLocaleDateString('ko-KR')
+  }
 
   return (
     <div className="p-4 max-w-md mx-auto">
       <h1 className="text-xl font-bold mb-4">현장 연락처</h1>
 
-      {/* 입력 */}
-      <div className="border p-3 mb-3 space-y-2">
-        <input placeholder="공종" value={gongjong} onChange={e => setGongjong(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="업체명" value={company} onChange={e => setCompany(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="본사번호" value={companyPhone} onChange={e => setCompanyPhone(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="담당자 이름" value={managerName} onChange={e => setManagerName(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="담당자 전화번호" value={managerPhone} onChange={e => setManagerPhone(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="성별" value={gender} onChange={e => setGender(e.target.value)} className="w-full border p-2"/>
-        <input placeholder="메모" value={memo} onChange={e => setMemo(e.target.value)} className="w-full border p-2"/>
+      {/* 입력폼 */}
+      <div className="border p-3 rounded mb-4">
+        <input placeholder="공종" className="w-full border p-2 mb-2" value={gongjong} onChange={(e) => setGongjong(e.target.value)} />
+        <input placeholder="업체명" className="w-full border p-2 mb-2" value={company} onChange={(e) => setCompany(e.target.value)} />
+        <input placeholder="본사번호" className="w-full border p-2 mb-2" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+        <input placeholder="담당자 이름" className="w-full border p-2 mb-2" value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+        <input placeholder="담당자 전화번호" className="w-full border p-2 mb-2" value={managerPhone} onChange={(e) => setManagerPhone(e.target.value)} />
+        <input placeholder="성별" className="w-full border p-2 mb-2" value={gender} onChange={(e) => setGender(e.target.value)} />
+        <input placeholder="메모" className="w-full border p-2 mb-2" value={memo} onChange={(e) => setMemo(e.target.value)} />
 
-        <select value={priority} onChange={e => setPriority(Number(e.target.value))} className="w-full border p-2">
+        <select className="w-full border p-2 mb-2" value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
           <option value={1}>★</option>
           <option value={2}>★★</option>
           <option value={3}>★★★</option>
         </select>
 
-        <button onClick={handleSubmit} className="w-full bg-blue-500 text-white p-2">
+        <button onClick={addContact} className="w-full bg-blue-500 text-white p-2 rounded">
           {editingId ? '수정 완료' : '추가'}
         </button>
+      </div>
+
+      {/* 필터 */}
+      <div className="flex gap-2 mb-3">
+        <select value={selectedGongjong} onChange={(e) => setSelectedGongjong(e.target.value)} className="border p-2 flex-1">
+          <option value="">전체 공종</option>
+          {[...new Set(contacts.map(c => c.gongjong || ''))].map((g, i) =>
+            g ? <option key={i} value={g}>{g}</option> : null
+          )}
+        </select>
+
+        <select value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} className="border p-2 flex-1">
+          <option value="">전체 업체</option>
+          {[...new Set(contacts.map(c => c.company || ''))].map((c, i) =>
+            c ? <option key={i} value={c}>{c}</option> : null
+          )}
+        </select>
       </div>
 
       {/* 검색 */}
       <input
         placeholder="이름 / 업체 검색"
+        className="w-full border p-2 mb-4"
         value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="w-full border p-2 mb-3"
+        onChange={(e) => setSearch(e.target.value)}
       />
 
       {/* 리스트 */}
-      {filtered.map(c => (
-        <div key={c.id} className="border p-3 mb-2 rounded">
-          <div className="font-bold">
-            {c.managerName} ({c.gender}) {'★'.repeat(c.priority)}
+      {filtered.map((c) => (
+        <div key={c.id} className="border p-3 rounded mb-2">
+          <div className="flex justify-between">
+            <div>{c.manager_name}</div>
+            <button onClick={() => updatePriority(c.id, c.priority === 3 ? 1 : (c.priority || 1) + 1)}>
+              {'★'.repeat(c.priority || 1)}
+            </button>
           </div>
+
           <div>{c.company} / {c.gongjong}</div>
-          <div>본사: {c.companyPhone}</div>
-          <div>담당자: {c.managerPhone}</div>
-          <div className="text-xs text-gray-500">
-            최근 연락: {c.last_contact ? new Date(c.last_contact).toLocaleDateString() : '-'}
-          </div>
-          <div className="text-xs text-gray-400">메모: {c.memo}</div>
+          <div>본사: {c.company_phone}</div>
+          <div>담당자: {c.manager_phone}</div>
+          <div className="text-sm text-gray-500">최근: {formatDate(c.last_contact)}</div>
 
           <div className="flex gap-2 mt-2 text-sm">
-            <button onClick={() => handleCall(c)} className="text-blue-500">전화</button>
-            <button onClick={() => handleEdit(c)} className="text-green-500">수정</button>
-            <button onClick={() => handleDelete(c.id)} className="text-red-500">삭제</button>
+            <a href={`tel:${c.manager_phone}`} onClick={() => markLastContactNow(c.id)} className="text-blue-500">전화</a>
+            <button onClick={() => markLastContactNow(c.id)} className="text-green-600">연락일</button>
+            <button onClick={() => handleEdit(c)} className="text-orange-500">수정</button>
+            <button onClick={() => deleteContact(c.id)} className="text-red-500">삭제</button>
           </div>
         </div>
       ))}
