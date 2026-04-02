@@ -32,15 +32,12 @@ export default function Home() {
   const [memo, setMemo] = useState('')
   const [priority, setPriority] = useState(1)
 
-  // 🔥 수정용 상태 추가
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const fetchData = async () => {
     const { data } = await supabase
       .from('contacts')
       .select('*')
-      .order('priority', { ascending: false })
-      .order('last_contact', { ascending: false })
 
     setContacts((data as Contact[]) || [])
   }
@@ -49,7 +46,6 @@ export default function Home() {
     fetchData()
   }, [])
 
-  // 🔥 추가 + 수정 통합
   const addContact = async () => {
     const payload = {
       gongjong,
@@ -96,7 +92,6 @@ export default function Home() {
     fetchData()
   }
 
-  // 🔥 수정 버튼 클릭 시
   const handleEdit = (c: Contact) => {
     setGongjong(c.gongjong || '')
     setCompany(c.company || '')
@@ -109,7 +104,6 @@ export default function Home() {
     setEditingId(c.id)
   }
 
-  // 🔥 폼 초기화
   const resetForm = () => {
     setGongjong('')
     setCompany('')
@@ -139,6 +133,14 @@ export default function Home() {
       !selectedCompany || c.company === selectedCompany
 
     return matchSearch && matchGongjong && matchCompany
+  })
+
+  // ⭐ VIP 정렬 핵심
+  const sorted = [...filtered].sort((a, b) => {
+    const pDiff = (b.priority || 1) - (a.priority || 1)
+    if (pDiff !== 0) return pDiff
+
+    return new Date(b.last_contact || 0).getTime() - new Date(a.last_contact || 0).getTime()
   })
 
   const formatDate = (d: string | null) => {
@@ -197,7 +199,7 @@ export default function Home() {
       />
 
       {/* 리스트 */}
-      {filtered.map((c) => (
+      {sorted.map((c) => (
         <div key={c.id} className="border p-3 rounded mb-2">
           <div className="flex justify-between">
             <div>{c.manager_name}</div>
