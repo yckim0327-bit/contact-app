@@ -1,25 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
-
-type Contact = {
-  id: string
-  gongjong: string
-  company: string
-  companyPhone: string
-  managerName: string
-  managerPhone: string
-  gender: string
-  memo: string
-  priority: number
-  last_contact: string
-}
+import { supabase } from '@/lib/supabase'
 
 export default function Home() {
-  const [contacts, setContacts] = useState<Contact[]>([])
   const [search, setSearch] = useState('')
+  const [contacts, setContacts] = useState<any[]>([])
 
+  // 입력값
   const [gongjong, setGongjong] = useState('')
   const [company, setCompany] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
@@ -29,17 +17,12 @@ export default function Home() {
   const [memo, setMemo] = useState('')
   const [priority, setPriority] = useState(1)
 
+  // 🔥 수정 상태
   const [editingId, setEditingId] = useState<string | null>(null)
-
-  const [selectedGongjong, setSelectedGongjong] = useState('')
-  const [selectedCompany, setSelectedCompany] = useState('')
 
   // 데이터 불러오기
   const fetchData = async () => {
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-
+    const { data } = await supabase.from('contacts').select('*')
     if (data) setContacts(data)
   }
 
@@ -77,7 +60,7 @@ export default function Home() {
   }
 
   // 수정 버튼 클릭
-  const handleEdit = (c: Contact) => {
+  const handleEdit = (c: any) => {
     setGongjong(c.gongjong)
     setCompany(c.company)
     setCompanyPhone(c.companyPhone)
@@ -96,7 +79,7 @@ export default function Home() {
   }
 
   // 전화 → 최근연락 업데이트
-  const handleCall = async (c: Contact) => {
+  const handleCall = async (c: any) => {
     window.location.href = `tel:${c.managerPhone}`
 
     await supabase
@@ -120,28 +103,11 @@ export default function Home() {
     setEditingId(null)
   }
 
-  // 필터 + 검색
-  const filtered = contacts.filter(c => {
-    const matchSearch =
-      c.managerName.includes(search) ||
-      c.company.includes(search)
-
-    const matchGongjong =
-      !selectedGongjong || c.gongjong === selectedGongjong
-
-    const matchCompany =
-      !selectedCompany || c.company === selectedCompany
-
-    return matchSearch && matchGongjong && matchCompany
-  })
-
-  // ⭐ VIP 정렬 (핵심)
-  const sorted = [...filtered].sort((a, b) => {
-    if (b.priority !== a.priority) {
-      return b.priority - a.priority
-    }
-    return new Date(b.last_contact).getTime() - new Date(a.last_contact).getTime()
-  })
+  // 검색만 유지 (정렬 없음)
+  const filtered = contacts.filter(c =>
+    c.managerName.includes(search) ||
+    c.company.includes(search)
+  )
 
   return (
     <div className="p-4 max-w-md mx-auto">
@@ -168,23 +134,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 필터 */}
-      <div className="flex gap-2 mb-2">
-        <select value={selectedGongjong} onChange={e => setSelectedGongjong(e.target.value)} className="border p-2 flex-1">
-          <option value="">전체 공종</option>
-          {[...new Set(contacts.map(c => c.gongjong))].map((g, i) => (
-            <option key={i}>{g}</option>
-          ))}
-        </select>
-
-        <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="border p-2 flex-1">
-          <option value="">전체 업체</option>
-          {[...new Set(contacts.map(c => c.company))].map((c, i) => (
-            <option key={i}>{c}</option>
-          ))}
-        </select>
-      </div>
-
       {/* 검색 */}
       <input
         placeholder="이름 / 업체 검색"
@@ -194,7 +143,7 @@ export default function Home() {
       />
 
       {/* 리스트 */}
-      {sorted.map(c => (
+      {filtered.map(c => (
         <div key={c.id} className="border p-3 mb-2 rounded">
           <div className="font-bold">
             {c.managerName} ({c.gender}) {'★'.repeat(c.priority)}
@@ -203,7 +152,7 @@ export default function Home() {
           <div>본사: {c.companyPhone}</div>
           <div>담당자: {c.managerPhone}</div>
           <div className="text-xs text-gray-500">
-            최근 연락: {new Date(c.last_contact).toLocaleDateString()}
+            최근 연락: {c.last_contact ? new Date(c.last_contact).toLocaleDateString() : '-'}
           </div>
           <div className="text-xs text-gray-400">메모: {c.memo}</div>
 
